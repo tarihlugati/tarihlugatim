@@ -3,17 +3,20 @@ name: build-embed
 on:
   schedule:
     - cron: "0 * * * *"      # her saat başı
-  workflow_dispatch:          # elle tetikleme
+  workflow_dispatch:
 
 permissions:
-  contents: write             # << push için şart
+  contents: write             # push için şart
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout (full history)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -28,8 +31,15 @@ jobs:
       - name: Build embed.html
         run: python build.py
 
-      - name: Commit & push changes
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "update embed.html"
-          file_pattern: embed.html
+      - name: Commit & push (rebase on remote)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # dosya değişmediyse çık
+          git add embed.html
+          git diff --cached --quiet && { echo "No changes"; exit 0; }
+
+          git commit -m "update embed.html"
+          git pull --rebase origin main
+          git push origin HEAD:main
